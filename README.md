@@ -4,7 +4,7 @@ This [Kotlin Mulitplatform](https://kotlinlang.org/docs/multiplatform.html) libr
 
 This repository is a Swift Package (see [documentation](https://developer.apple.com/documentation/swift_packages)) to wrap the [kmm-vc-library](https://github.com/a-sit-plus/kmm-vc-library). 
 
-The [Package.swift](Package.swift) contains a remote binary target, which is the framework zipped attached to a Github release, in the form of <https://github.com/a-sit-plus/kmm-vc-library/releases/download/1.7.2/VcLibKMM-release.xcframework.zip>.
+The [Package.swift](Package.swift) contains a remote binary target, which is the framework zipped attached to a Github release, in the form of <https://github.com/a-sit-plus/kmm-vc-library/releases/download/3.0.0/VcLibKMM-release.xcframework.zip>.
 
 We'll recommend a few extensions in Swift to make using Kotlin code easier:
 
@@ -74,9 +74,9 @@ import CryptoKit
 public class VcLibCryptoServiceCryptoKit: CryptoService {
     
     public var jwsAlgorithm: JwsAlgorithm
-    public var keyId: String
-    public var certificateChain: [Data]
-    private let jsonWebKey: JsonWebKey
+    public var coseAlgorithm: CoseAlgorithm
+    public var certificate: KotlinByteArray?
+    private let cryptoPublicKey: CryptoPublicKey
     private let keyChainService: KeyChainService
     
     public init?(keyChainService: KeyChainService) {
@@ -84,10 +84,10 @@ public class VcLibCryptoServiceCryptoKit: CryptoService {
             return nil
         }
         self.keyChainService = keyChainService
-        self.jsonWebKey = JsonWebKey.companion.fromAnsiX963Bytes(type: .ec, curve: .secp256R1, it: privateKey.publicKey.x963Representation.kotlinByteArray)!
-        self.keyId = jsonWebKey.keyId!
+        self.cryptoPublicKey = CryptoPublicKey.Ec.companion.fromAnsiX963Bytes(curve: .secp256R1, it: privateKey.publicKey.x963Representation.kotlinByteArray)!
         self.jwsAlgorithm = .es256
-        self.certificateChain = []
+        self.coseAlgorithm = .es256
+        self.certificate = nil
     }
     
     public func decrypt(key: KotlinByteArray, iv: KotlinByteArray, aad: KotlinByteArray, input: KotlinByteArray, authTag: KotlinByteArray, algorithm: JweEncryption) async throws -> KmmResult<KotlinByteArray> {
@@ -197,17 +197,20 @@ public class VcLibCryptoServiceCryptoKit: CryptoService {
         return KmmResultSuccess(signature.derRepresentation.kotlinByteArray)
     }
     
-    public func toJsonWebKey() -> JsonWebKey {
-        return jsonWebKey
+    public func toPublicKey() -> CryptoPublicKey {
+        return cryptoPublicKey
     }
     
 }
 
 public class VcLibVerifierCryptoService : VerifierCryptoService {
     
-    public func verify(input: KotlinByteArray, signature: KotlinByteArray, algorithm: JwsAlgorithm, publicKey: JsonWebKey) -> KmmResult<KotlinBoolean> {
+    public func verify(input: KotlinByteArray, signature: KotlinByteArray, algorithm: JwsAlgorithm, publicKey: CryptoPublicKey) -> KmmResult<KotlinBoolean> {
         if algorithm != .es256 {
             return KmmResultFailure(KotlinThrowable(message: "Can not verify algorithm \(algorithm.name)"))
+        }
+        if !(publicKey is CryptoPublicKey.Ec) {
+            return KmmResultFailure(KotlinThrowable(message: "Public key is not an EC key \(publicKey)"))
         }
         let ansiX963Result = publicKey.toAnsiX963ByteArray()
         if let throwable = ansiX963Result.exceptionOrNull() {
