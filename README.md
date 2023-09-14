@@ -24,7 +24,7 @@ extension Data {
         }
         return kotlinByteArray
     }
-    
+
     var bytes: [Int8] {
         return self.map { Int8(bitPattern: $0)}
     }
@@ -46,18 +46,12 @@ extension KotlinByteArray {
     }
 }
 
-extension Date {
-    var kotlinInstant : Instant {
-        return Instant.companion.fromEpochMilliseconds(epochMilliseconds: Int64(self.timeIntervalSince1970) * 1000)
-    }
-}
-
 func KmmResultFailure<T>(_ error: KotlinThrowable) -> KmmResult<T> where T: AnyObject {
-    return KmmResult<T>.companion.failure(error: error) as! KmmResult<T>
+    return KmmResult(failure: error) as! KmmResult<T>
 }
 
 func KmmResultSuccess<T>(_ value: T) -> KmmResult<T> where T: AnyObject {
-    return KmmResult<T>.companion.success(value: value) as! KmmResult<T>
+    return KmmResult(value: value) as! KmmResult<T>
 }
 ```
 
@@ -72,24 +66,26 @@ import CryptoKit
 // KeyChainService.loadPrivateKey() provides a SecureEnclave.P256.Signing.PrivateKey?
 
 public class VcLibCryptoServiceCryptoKit: CryptoService {
-    
+
+    public var identifier: String
     public var jwsAlgorithm: JwsAlgorithm
     public var coseAlgorithm: CoseAlgorithm
     public var certificate: KotlinByteArray?
     private let cryptoPublicKey: CryptoPublicKey
     private let keyChainService: KeyChainService
-    
+
     public init?(keyChainService: KeyChainService) {
         guard let privateKey = keyChainService.loadPrivateKey() else {
             return nil
         }
         self.keyChainService = keyChainService
         self.cryptoPublicKey = CryptoPublicKey.Ec.companion.fromAnsiX963Bytes(curve: .secp256R1, it: privateKey.publicKey.x963Representation.kotlinByteArray)!
+        self.identifier = cryptoPublicKey.toJsonWebKey().identifier
         self.jwsAlgorithm = .es256
         self.coseAlgorithm = .es256
         self.certificate = nil
     }
-    
+
     public func decrypt(key: KotlinByteArray, iv: KotlinByteArray, aad: KotlinByteArray, input: KotlinByteArray, authTag: KotlinByteArray, algorithm: JweEncryption) async throws -> KmmResult<KotlinByteArray> {
         switch algorithm {
         case .a256gcm:
@@ -104,7 +100,7 @@ public class VcLibCryptoServiceCryptoKit: CryptoService {
             return KmmResultFailure(KotlinThrowable(message: "Algorithm unknown \(algorithm)"))
         }
     }
-    
+
     public func encrypt(key: KotlinByteArray, iv: KotlinByteArray, aad: KotlinByteArray, input: KotlinByteArray, algorithm: JweEncryption) -> KmmResult<AuthenticatedCiphertext> {
         switch algorithm {
         case .a256gcm:
@@ -119,7 +115,7 @@ public class VcLibCryptoServiceCryptoKit: CryptoService {
             return KmmResultFailure(KotlinThrowable(message: "Algorithm unknown \(algorithm)"))
         }
     }
-    
+
     public func generateEphemeralKeyPair(ecCurve: EcCurve) -> KmmResult<EphemeralKeyHolder> {
         switch ecCurve {
         case .secp256R1:
@@ -128,8 +124,8 @@ public class VcLibCryptoServiceCryptoKit: CryptoService {
             return KmmResultFailure(KotlinThrowable(message: "ecCurve unknown \(ecCurve)"))
         }
     }
-    
-    public func messageDigest(input: KotlinByteArray, digest: VcLibDigest) -> KmmResult<KotlinByteArray> {
+
+    public func messageDigest(input: KotlinByteArray, digest: VcLibKMMDigest) -> KmmResult<KotlinByteArray> {
         switch digest {
         case .sha256:
             let digest = SHA256.hash(data: input.data)
@@ -139,7 +135,7 @@ public class VcLibCryptoServiceCryptoKit: CryptoService {
             return KmmResultFailure(KotlinThrowable(message: "Digest unknown \(digest)"))
         }
     }
-    
+
     public func performKeyAgreement(ephemeralKey: EphemeralKeyHolder, recipientKey: JsonWebKey, algorithm: JweAlgorithm) -> KmmResult<KotlinByteArray> {
         switch algorithm {
         case .ecdhEs:
@@ -161,7 +157,7 @@ public class VcLibCryptoServiceCryptoKit: CryptoService {
             return KmmResultFailure(KotlinThrowable(message: "Algorithm unknown \(algorithm)"))
         }
     }
-    
+
     public func performKeyAgreement(ephemeralKey: JsonWebKey, algorithm: JweAlgorithm) -> KmmResult<KotlinByteArray> {
         switch algorithm {
         case .ecdhEs:
@@ -179,14 +175,14 @@ public class VcLibCryptoServiceCryptoKit: CryptoService {
                 return KmmResultFailure(KotlinThrowable(message: "Error in KeyAgreement"))
             }
             let data = sharedSecret.withUnsafeBytes {
-                return Data(Array($0))
+                return Data($0)
             }
             return KmmResultSuccess(data.kotlinByteArray)
         default:
             return KmmResultFailure(KotlinThrowable(message: "Algorithm unknown \(algorithm)"))
         }
     }
-    
+
     public func sign(input: KotlinByteArray) async throws -> KmmResult<KotlinByteArray> {
         guard let privateKey = keyChainService.loadPrivateKey() else {
             return KmmResultFailure(KotlinThrowable(message: "Could not load private key"))
@@ -196,7 +192,7 @@ public class VcLibCryptoServiceCryptoKit: CryptoService {
         }
         return KmmResultSuccess(signature.derRepresentation.kotlinByteArray)
     }
-    
+
     public func toPublicKey() -> CryptoPublicKey {
         return cryptoPublicKey
     }
@@ -261,3 +257,36 @@ public class VcLibEphemeralKeyHolder : EphemeralKeyHolder {
 }
 ```
 
+
+An example for the implementation of `loadPrivateKey()` would be:
+
+```Swift
+
+extension String: Error {}
+
+    public func loadPrivateKey() -> SecureEnclave.P256.Signing.PrivateKey throws {
+        let flags: SecAccessControlCreateFlags = [.privateKeyUsage]
+        var error: Unmanaged<CFError>?
+        guard let access = SecAccessControlCreateWithFlags(kCFAllocatorDefault, kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly, flags, &error) else {
+            throw "cannot create key access flags"
+        }
+        guard let privateKey = try? SecureEnclave.P256.Signing.PrivateKey(compactRepresentable: true, accessControl: access, authenticationContext: nil) else {
+            throw "Can not create SecureEnclave key"
+        }
+        // SecureEnclave keys from CryptoKit shall be stored as "passwords"
+        // (their data representation is an encrypted blob)
+        let query = [kSecClass: kSecClassGenericPassword,
+                     kSecAttrAccessible: kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly,
+                     kSecUseDataProtectionKeychain: true,
+                     kSecAttrLabel: RealKeyChainService.KEY_PAIR_ALIAS,
+                     kSecAttrAccount: RealKeyChainService.ACCOUNT,
+                     kSecValueData: privateKey.dataRepresentation] as [String: Any]
+
+        let status = SecItemAdd(query as CFDictionary, nil)
+        guard status == errSecSuccess else {
+            throw "unable to store item: \(status)"
+        }
+        return privateKey
+    }
+
+```
