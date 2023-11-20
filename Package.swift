@@ -23,18 +23,18 @@ let package = Package(
   targets: [
     .binaryTarget(
       name: "VcLibKmm",
-      url: "https://github.com/a-sit-plus/kmm-vc-library/releases/download/3.0.2/VcLibKmm-release.xcframework.zip",
-      checksum: "438adc99e1670493ba3045d8d7d499595744ceab0cf3a3677c2f23148afb2dde"
+      url: "https://github.com/a-sit-plus/kmm-vc-library/releases/download/3.2.0/VcLibKmm-release.xcframework.zip",
+      checksum: "9e92f9829601ccbac7b3ece6f654c907fd39f2651ce12b4b58cfa34d8ea6db2d"
     ),
     .binaryTarget(
       name: "VcLibAriesKmm",
-      url: "https://github.com/a-sit-plus/kmm-vc-library/releases/download/3.0.2/VcLibAriesKmm-release.xcframework.zip",
-      checksum: "04e6b06960662bc04c8af112a162a196c37ec239fe6a124e5d9cbb3cbc1f1a0a"
+      url: "https://github.com/a-sit-plus/kmm-vc-library/releases/download/3.2.0/VcLibAriesKmm-release.xcframework.zip",
+      checksum: "9bea7a3c921e18f1eb4fd6a765ee62df36032288d5059e62e48b4d2eefa0405e"
     ),
     .binaryTarget(
       name: "VcLibOpenIdKmm",
-      url: "https://github.com/a-sit-plus/kmm-vc-library/releases/download/3.0.2/VcLibOpenIdKmm-release.xcframework.zip",
-      checksum: "00954a615823a04972a2917dd310bf301e757836069a8ba6e0f2f670752b6fac"
+      url: "https://github.com/a-sit-plus/kmm-vc-library/releases/download/3.2.0/VcLibOpenIdKmm-release.xcframework.zip",
+      checksum: "7e68b588b371ebc50f114ed9d983da88e54e0ef7a071db0f02cf8f5326506b88"
     )
   ]
 )
