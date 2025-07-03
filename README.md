@@ -1,6 +1,6 @@
 # KMM VC Library Swift Package
 
-This [Kotlin Mulitplatform](https://kotlinlang.org/docs/multiplatform.html) library implements the [W3C VC Data Model](https://w3c.github.io/vc-data-model/) to support several use cases of verifiable credentials, verifiable presentations, and validation thereof. This library may be shared between Wallet Apps, Verifier Apps and a Backend Service issuing credentials.
+This [Kotlin Multiplatform](https://kotlinlang.org/docs/multiplatform.html) library implements the [W3C VC Data Model](https://w3c.github.io/vc-data-model/) to support several use cases of verifiable credentials, verifiable presentations, and validation thereof. This library may be shared between Wallet Apps, Verifier Apps and a Backend Service issuing credentials.
 
 This repository is a Swift Package (see [documentation](https://developer.apple.com/documentation/swift_packages)) to wrap the [kmm-vc-library](https://github.com/a-sit-plus/kmm-vc-library). 
 
